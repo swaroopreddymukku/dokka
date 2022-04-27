@@ -7,11 +7,9 @@ import org.jetbrains.dokka.DokkaConfiguration.DokkaSourceSet
 import org.jetbrains.dokka.analysis.DescriptorDocumentableSource
 import org.jetbrains.dokka.analysis.PsiDocumentableSource
 import org.jetbrains.dokka.base.DokkaBase
-import org.jetbrains.dokka.base.resolvers.anchors.SymbolAnchorHint
 import org.jetbrains.dokka.base.translators.documentables.PageContentBuilder
-import org.jetbrains.dokka.model.DocumentableSource
-import org.jetbrains.dokka.model.WithSources
-import org.jetbrains.dokka.model.toDisplaySourceSets
+import org.jetbrains.dokka.links.DRI
+import org.jetbrains.dokka.model.*
 import org.jetbrains.dokka.pages.*
 import org.jetbrains.dokka.plugability.DokkaContext
 import org.jetbrains.dokka.plugability.plugin
@@ -20,6 +18,7 @@ import org.jetbrains.dokka.transformers.pages.PageTransformer
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptorWithSource
 import org.jetbrains.kotlin.resolve.source.getPsi
 import org.jetbrains.kotlin.utils.addToStdlib.cast
+import org.jetbrains.kotlin.utils.addToStdlib.ifNotEmpty
 import java.io.File
 
 class SourceLinksTransformer(val context: DokkaContext) : PageTransformer {
@@ -33,11 +32,14 @@ class SourceLinksTransformer(val context: DokkaContext) : PageTransformer {
     override fun invoke(input: RootPageNode) =
         input.transformContentPagesTree { node ->
             when (node) {
-                is WithDocumentables ->
-                    node.documentables.filterIsInstance<WithSources>().flatMap { resolveSources(it) }
-                    .takeIf { it.isNotEmpty() }
-                    ?.let { node.addSourcesContent(it) }
-                    ?: node
+                is WithDocumentables -> {
+                    val sources = node.documentables.filterIsInstance<WithSources>()
+                        .associate { (it as Documentable).dri to resolveSources(it) }
+                    if (sources.isNotEmpty())
+                        node.modified(content = transformContent(node.content, sources))
+                    else
+                        node
+                }
                 else -> node
             }
         }
@@ -48,45 +50,10 @@ class SourceLinksTransformer(val context: DokkaContext) : PageTransformer {
     private fun resolveSources(documentable: WithSources) = documentable.sources
         .mapNotNull { entry ->
             getSourceLinks().find { File(entry.value.path).startsWith(it.path) && it.sourceSetData == entry.key }?.let {
-                Pair(
-                    entry.key,
+                    entry.key to
                     entry.value.toLink(it)
-                )
             }
         }
-
-    private fun ContentPage.addSourcesContent(sources: List<Pair<DokkaSourceSet, String>>) = builder
-        .buildSourcesContent(this, sources)
-        .let {
-            this.modified(
-                content = this.content.addTable(it)
-            )
-        }
-
-    private fun PageContentBuilder.buildSourcesContent(
-        node: ContentPage,
-        sources: List<Pair<DokkaSourceSet, String>>
-    ): ContentGroup {
-        val documentables = (node as? WithDocumentables)?.documentables.orEmpty()
-        return contentFor(
-            node.dri,
-            documentables.flatMap { it.sourceSets }.toSet()
-        ) {
-            header(2, "Sources", kind = ContentKind.Source)
-            +ContentTable(
-                header = emptyList(),
-                children = sources.map {
-                    buildGroup(node.dri, setOf(it.first), kind = ContentKind.Source, extra = mainExtra + SymbolAnchorHint(it.second, ContentKind.Source)) {
-                        link("${it.first.displayName} source", it.second)
-                    }
-                },
-                dci = DCI(node.dri, ContentKind.Source),
-                sourceSets = documentables.flatMap { it.sourceSets }.toDisplaySourceSets(),
-                style = emptySet(),
-                extra = mainExtra + SimpleAttr.header("Sources")
-            )
-        }
-    }
 
     private fun DocumentableSource.toLink(sourceLink: SourceLink): String {
         val sourcePath = File(this.path).canonicalPath.replace("\\", "/")
@@ -105,38 +72,45 @@ class SourceLinksTransformer(val context: DokkaContext) : PageTransformer {
                 sourceLink.lineSuffix +
                 "${lineNumber ?: 1}"
     }
-
-    private fun ContentNode.addTable(table: ContentGroup): ContentNode =
-        when (this) {
-            is ContentGroup -> {
-                if (hasTabbedContent()) {
-                    copy(
-                        children = children.map {
-                            if (it.hasStyle(ContentStyle.TabbedContent) && it is ContentGroup) {
-                                it.copy(children = it.children + table)
-                            } else {
-                                it
-                            }
-                        }
-                    )
-                } else {
-                    copy(children = children + table)
-                }
-
-            }
-            else -> ContentGroup(
-                children = listOf(this, table),
-                extra = this.extra,
-                sourceSets = this.sourceSets,
-                dci = this.dci,
-                style = this.style
-            )
-        }
-
+    
     private fun PsiElement.lineNumber(): Int? {
         val doc = PsiDocumentManager.getInstance(project).getDocument(containingFile)
         // IJ uses 0-based line-numbers; external source browsers use 1-based
         return doc?.getLineNumber(textRange.startOffset)?.plus(1)
+    }
+
+    private fun ContentNode.signatureGroupOrNull() =
+        (this as? ContentGroup)?.takeIf { it.dci.kind == ContentKind.Symbol }
+
+    private fun transformContent(
+        contentNode: ContentNode, sources: Map<DRI, List<Pair<DokkaSourceSet, String>>>
+    ): ContentNode =
+        contentNode.signatureGroupOrNull()?.let { cg ->
+            sources[cg.dci.dri.singleOrNull()]?.let { sourceLinks ->
+                sourceLinks.filter { it.first.sourceSetID in cg.sourceSets.sourceSetIDs }.ifNotEmpty {
+                    cg.copy(children = cg.children + sourceLinks.map {
+                        buildContentLink(
+                            cg.dci.dri.first(),
+                            it.first,
+                            it.second
+                        )
+                    })
+                }
+            }
+        } ?: when (contentNode) {
+            is ContentComposite -> contentNode.transformChildren { transformContent(it, sources) }
+            else -> contentNode
+        }
+
+    private fun buildContentLink(dri: DRI, sourceSet: DokkaSourceSet, link: String) = builder.contentFor(
+        dri,
+        setOf(sourceSet),
+        ContentKind.Source,
+        setOf(TextStyle.RightAligned)
+    ) {
+        text("(")
+        link("source", link)
+        text(")")
     }
 }
 
@@ -148,5 +122,3 @@ data class SourceLink(val path: String, val url: String, val lineSuffix: String?
         sourceSetData
     )
 }
-
-fun ContentGroup.hasTabbedContent(): Boolean = children.any { it.hasStyle(ContentStyle.TabbedContent) }
