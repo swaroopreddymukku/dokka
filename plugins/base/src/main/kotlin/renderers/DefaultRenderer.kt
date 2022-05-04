@@ -154,7 +154,7 @@ abstract class DefaultRenderer<T>(
     }
 
     open fun buildPageContent(context: T, page: ContentPage) {
-        context.buildNavigation(page)
+//        context.buildNavigation(page)
         page.content.build(context, page)
     }
 

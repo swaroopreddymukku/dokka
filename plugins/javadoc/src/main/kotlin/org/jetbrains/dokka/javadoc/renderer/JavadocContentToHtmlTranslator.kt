@@ -23,7 +23,7 @@ internal class JavadocContentToHtmlTranslator(
             is ContentCode -> htmlForCode(node, relative)
             is ContentList -> htmlForList(node.children, relative)
             is JavadocSignatureContentNode -> htmlForSignature(node, relative)
-            is ContentBreakLine -> "<br>"
+            is ContentBreakLine -> "<br/>"
             else -> ""
         }
 
@@ -47,7 +47,7 @@ internal class JavadocContentToHtmlTranslator(
     private fun htmlForCode(code: ContentCode, relative: PageNode?): String {
         fun nodeToText(node: ContentNode, insidePre: Boolean = false): String = when (node) {
             is ContentText -> node.text.htmlEscape()
-            is ContentBreakLine -> if(insidePre) "\n" else "<br>"
+            is ContentBreakLine -> if(insidePre) "\n" else "<br/>"
             is ContentDRILink -> buildLinkFromNode(node, relative)
             is ContentResolvedLink -> buildLinkFromNode(node, relative)
             is ContentCodeBlock -> "<pre><code>${node.children.joinToString("") { nodeToText(it, insidePre = true) }}</code></pre>"

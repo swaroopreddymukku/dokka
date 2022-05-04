@@ -11,6 +11,7 @@ import org.jetbrains.dokka.pages.*
 import org.jetbrains.dokka.plugability.DokkaContext
 import org.jetbrains.dokka.plugability.plugin
 import org.jetbrains.dokka.plugability.query
+import org.jetbrains.dokka.utilities.docSiteEscape
 import org.jetbrains.dokka.utilities.htmlEscape
 
 open class CommonmarkRenderer(
@@ -111,7 +112,7 @@ open class CommonmarkRenderer(
     }
 
     override fun StringBuilder.buildLineBreak() {
-        append("\\")
+//        append("\\")
         buildNewLine()
     }
 
@@ -146,7 +147,7 @@ open class CommonmarkRenderer(
 
             distinct.filter { it.key.isNotBlank() }.forEach { (text, platforms) ->
                 buildParagraph()
-                buildSourceSetTags(platforms.toSet())
+//                buildSourceSetTags(platforms.toSet())
                 buildLineBreak()
                 append(text.trim())
                 buildParagraph()
@@ -159,6 +160,18 @@ open class CommonmarkRenderer(
             append("!")
         }
         append("[${node.altText}](${node.address})")
+    }
+
+    override fun StringBuilder.buildCodeBlock(code: ContentCodeBlock, pageContext: ContentPage) {
+        append("```${code.language}\n")
+        code.children.forEach { buildContentNode(it, pageContext) }
+        append("\n```")
+    }
+
+    override fun StringBuilder.buildCodeInline(code: ContentCodeInline, pageContext: ContentPage) {
+        append('`')
+        code.children.forEach { buildContentNode(it, pageContext) }
+        append('`')
     }
 
     override fun StringBuilder.buildTable(
@@ -208,7 +221,7 @@ open class CommonmarkRenderer(
                         .trim()
                         .replace("#+ ".toRegex(), "") // Workaround for headers inside tables
                         .replace("\\\n", "\n\n")
-                        .replace("\n[\n]+".toRegex(), "<br>")
+                        .replace("\n[\n]+".toRegex(), "<br/>")
                         .replace("\n", " ")
                     )
                     append(" ")
@@ -226,7 +239,7 @@ open class CommonmarkRenderer(
             val decorators = decorators(textNode.style)
             append(textNode.text.takeWhile { it == ' ' })
             append(decorators)
-            append(textNode.text.trim().htmlEscape())
+            append(textNode.text.trim().docSiteEscape())
             append(decorators.reversed())
             append(textNode.text.takeLastWhile { it == ' ' })
         }
@@ -267,7 +280,7 @@ open class CommonmarkRenderer(
             val (instance, sourceSets) = entry.getInstanceAndSourceSets()
 
             buildParagraph()
-            buildSourceSetTags(sourceSets)
+//            buildSourceSetTags(sourceSets)
             buildLineBreak()
 
             instance.before?.let {
@@ -283,7 +296,7 @@ open class CommonmarkRenderer(
                 .values.forEach { innerEntry ->
                     val (innerInstance, innerSourceSets) = innerEntry.getInstanceAndSourceSets()
                     if (sourceSets.size > 1) {
-                        buildSourceSetTags(innerSourceSets)
+//                        buildSourceSetTags(innerSourceSets)
                         buildLineBreak()
                     }
                     innerInstance.divergent.build(

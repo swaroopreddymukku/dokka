@@ -9,6 +9,8 @@ import java.net.URLEncoder
  */
 fun String.htmlEscape(): String = replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 
+fun String.docSiteEscape(): String = replace(">", "/>").replace("//>", "/>")
+
 fun String.urlEncoded(): String = URLEncoder.encode(this, "UTF-8")
 
 fun String.formatToEndWithHtml() =
