@@ -33,7 +33,9 @@ open class CommonmarkRenderer(
                 childrenCallback()
                 buildParagraph()
             }
-            else -> childrenCallback()
+            else -> {
+                childrenCallback()
+            }
         }
     }
 
@@ -109,6 +111,7 @@ open class CommonmarkRenderer(
                 buildText(node.children, pageContext, sourceSetRestriction)
             }
         } else buildText(node.children, pageContext, sourceSetRestriction)
+        buildNewLine()
     }
 
     override fun StringBuilder.buildLineBreak() {

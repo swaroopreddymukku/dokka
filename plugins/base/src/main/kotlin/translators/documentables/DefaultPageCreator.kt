@@ -24,7 +24,7 @@ import kotlin.reflect.full.isSubclassOf
 private typealias GroupedTags = Map<KClass<out TagWrapper>, List<Pair<DokkaSourceSet?, TagWrapper>>>
 
 private val specialTags: Set<KClass<out TagWrapper>> =
-    setOf(Property::class, Description::class, Constructor::class, Param::class, See::class)
+    setOf(Property::class, Description::class, Constructor::class, Param::class)
 
 open class DefaultPageCreator(
     configuration: DokkaBaseConfiguration?,

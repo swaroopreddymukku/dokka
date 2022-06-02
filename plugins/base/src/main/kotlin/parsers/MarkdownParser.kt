@@ -518,7 +518,7 @@ open class MarkdownParser(
                                 parseStringToDocNode(it.getContent()),
                                 it.name!!
                             )
-                            KDocKnownTag.AUTHOR -> Author(parseStringToDocNode(it.getContent()))
+                            KDocKnownTag.AUTHOR -> CustomTagWrapper(parseStringToDocNode(it.getContent()), "SKIP")
                             KDocKnownTag.THROWS -> {
                                 val dri = pointedLink(it)
                                 Throws(
@@ -541,15 +541,8 @@ open class MarkdownParser(
                             )
                             KDocKnownTag.RECEIVER -> Receiver(parseStringToDocNode(it.getContent()))
                             KDocKnownTag.RETURN -> Return(parseStringToDocNode(it.getContent()))
-                            KDocKnownTag.SEE -> {
-                                val dri = pointedLink(it)
-                                See(
-                                    parseStringToDocNode(it.getContent()),
-                                    dri?.fqName() ?: it.getSubjectName().orEmpty(),
-                                    dri,
-                                )
-                            }
-                            KDocKnownTag.SINCE -> Since(parseStringToDocNode(it.getContent()))
+                            KDocKnownTag.SEE -> CustomTagWrapper(parseStringToDocNode(it.getContent()), "SKIP")
+                            KDocKnownTag.SINCE -> CustomTagWrapper(parseStringToDocNode(it.getContent()), "SKIP")
                             KDocKnownTag.CONSTRUCTOR -> Constructor(parseStringToDocNode(it.getContent()))
                             KDocKnownTag.PROPERTY -> Property(
                                 parseStringToDocNode(it.getContent()),

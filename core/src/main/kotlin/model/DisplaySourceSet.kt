@@ -12,7 +12,7 @@ data class DisplaySourceSet(
 ) : SelfRepresentingSingletonSet<DisplaySourceSet> {
     constructor(sourceSet: DokkaSourceSet) : this(
         sourceSetIDs = CompositeSourceSetID(sourceSet.sourceSetID),
-        name = sourceSet.displayName,
+        name = "",
         platform = sourceSet.analysisPlatform
     )
 }
